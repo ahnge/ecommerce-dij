@@ -11,10 +11,8 @@ def store(req):
     if req.user.is_authenticated:
         customer = req.user.customer
         order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        items = order.orderitem_set.all()
         cartItems = order.get_cart_items
     else:
-        items = []
         order = {"get_cart_total": 0, "get_cart_items": 0, "shipping": False}
         cartItems = order["get_cart_items"]
     products = Product.objects.all()
@@ -29,9 +27,17 @@ def cart(req):
         items = order.orderitem_set.all()
         cartItems = order.get_cart_items
     else:
+        try:
+            cart = json.loads(req.COOKIES["cart"])
+            print(cart)
+        except:
+            cart = {}
+
         items = []
         order = {"get_cart_total": 0, "get_cart_items": 0, "shipping": False}
         cartItems = order["get_cart_items"]
+        for i in cart:
+            cartItems += cart[i]["quantity"]
 
     context = {"items": items, "order": order, "cartItems": cartItems}
     return render(req, "store/cart.html", context)
@@ -73,7 +79,7 @@ def update_item(req):
     if orderItem.quantity <= 0:
         orderItem.delete()
 
-    return JsonResponse("item was added", safe=False)
+    return JsonResponse("item was updated", safe=False)
 
 
 def process_order(req):

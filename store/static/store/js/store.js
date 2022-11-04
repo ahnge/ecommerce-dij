@@ -7,12 +7,32 @@ updateCartBtns.forEach((btn) => {
 
     console.log(`user : ${user}`);
     if (user === "AnonymousUser") {
-      console.log("User is not loggin");
+      updateCookieItem(productId, action);
     } else {
       updateItem(productId, action);
     }
   });
 });
+
+const updateCookieItem = (productId, action) => {
+  console.log("Adding cookie..");
+  if (action == "add") {
+    if (cart[productId] == undefined) {
+      cart[productId] = { quantity: 1 };
+    } else {
+      cart[productId].quantity += 1;
+    }
+  }
+  if (action == "remove") {
+    cart[productId].quantity -= 1;
+    if (cart[productId].quantity <= 0) {
+      delete cart[productId];
+    }
+  }
+  setCookie("cart", JSON.stringify(cart), 10);
+  console.log(cart);
+  location.reload();
+};
 
 const updateItem = (productId, action) => {
   url = "/update_item/";
@@ -28,7 +48,7 @@ const updateItem = (productId, action) => {
     return res.json();
   };
   postData(url, { productId, action }).then((data) => {
-    console.log("i ran");
+    console.log(data);
     location.reload();
   });
 };
