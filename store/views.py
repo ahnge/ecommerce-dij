@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from .models import *
+from .utils import cart_data, guest_checkout
 import json
 import datetime
 
@@ -8,51 +9,29 @@ import datetime
 
 
 def store(req):
-    if req.user.is_authenticated:
-        customer = req.user.customer
-        order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        cartItems = order.get_cart_items
-    else:
-        order = {"get_cart_total": 0, "get_cart_items": 0, "shipping": False}
-        cartItems = order["get_cart_items"]
+    data = cart_data(req)
+    cartItems = data["cartItems"]
+
     products = Product.objects.all()
     context = {"products": products, "cartItems": cartItems}
     return render(req, "store/store.html", context)
 
 
 def cart(req):
-    if req.user.is_authenticated:
-        customer = req.user.customer
-        order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        items = order.orderitem_set.all()
-        cartItems = order.get_cart_items
-    else:
-        try:
-            cart = json.loads(req.COOKIES["cart"])
-            print(cart)
-        except:
-            cart = {}
-
-        items = []
-        order = {"get_cart_total": 0, "get_cart_items": 0, "shipping": False}
-        cartItems = order["get_cart_items"]
-        for i in cart:
-            cartItems += cart[i]["quantity"]
+    data = cart_data(req)
+    items = data["items"]
+    order = data["order"]
+    cartItems = data["cartItems"]
 
     context = {"items": items, "order": order, "cartItems": cartItems}
     return render(req, "store/cart.html", context)
 
 
 def checkout(req):
-    if req.user.is_authenticated:
-        customer = req.user.customer
-        order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        items = order.orderitem_set.all()
-        cartItems = order.get_cart_items
-    else:
-        items = []
-        order = {"get_cart_total": 0, "get_cart_items": 0, "shipping": False}
-        cartItems = order["get_cart_items"]
+    data = cart_data(req)
+    items = data["items"]
+    order = data["order"]
+    cartItems = data["cartItems"]
 
     context = {"items": items, "order": order, "cartItems": cartItems}
     return render(req, "store/checkout.html", context)
@@ -84,28 +63,31 @@ def update_item(req):
 
 def process_order(req):
     data = json.loads(req.body)
-    transaction_id = datetime.datetime.now().timestamp()
 
     if req.user.is_authenticated:
         customer = req.user.customer
-        order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        total = float(data["total"])
-        order.transaction_id = transaction_id
-
-        if total == order.get_cart_total:
-            order.complete = True
-        order.save()
-
-        if order.shipping == True:
-            ShippingAddress.objects.create(
-                order=order,
-                customer=customer,
-                address=data["address"],
-                city=data["city"],
-                state=data["state"],
-                zipcode=data["zipcode"],
-            )
-
+        order, created = order.objects.get_or_create(customer=customer, complete=False)
     else:
-        print("userj is not loggin ")
+        order, customer = guest_checkout(req, data)
+
+    if order.shipping == True:
+        ShippingAddress.objects.create(
+            order=order,
+            customer=customer,
+            address=data["address"],
+            city=data["city"],
+            state=data["state"],
+            zipcode=data["zipcode"],
+        )
+
+    transaction_id = datetime.datetime.now().timestamp()
+    total = float(data["total"])
+    order.transaction_id = transaction_id
+
+    print(total)
+    print(order.get_cart_total)
+    if total == float(order.get_cart_total):
+        print("total and order total are the same")
+        order.complete = True
+    order.save()
     return JsonResponse("payment processed", safe=False)

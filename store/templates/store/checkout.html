@@ -172,8 +172,10 @@
       return res.json();
     };
     postData(url, { ...userFormData, ...shippingInfo }).then((data) => {
-      console.log("i ran");
-      window.location.replace("http://localhost:8000/");
+      alert("Transition complete");
+      cart = {};
+      setCookie("cart", JSON.stringify(cart), 10);
+      window.location.replace("{% url 'store:store' %}");
     });
   });
 </script>
